@@ -1,13 +1,11 @@
 package com.example.suren.photogallery;
 
+import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-public class PhotoGalleryActivity extends AppCompatActivity {
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_photo_gallery);
+public class PhotoGalleryActivity extends SimpleFragmentActivity {
+    protected Fragment createFragment() {
+        return new PhotoGalleryFragment();
     }
 }
