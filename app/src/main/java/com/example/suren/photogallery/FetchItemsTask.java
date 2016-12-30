@@ -12,12 +12,7 @@ public class FetchItemsTask extends AsyncTask<Void, Void, Void> {
 
     @Override
     protected Void doInBackground(Void... voids) {
-        try {
-            String content = FlickrFetchr.getUrlString(SITE_URL);
-            Log.i(LOG_TAG, content);
-        } catch (IOException ex) {
-            Log.e(LOG_TAG, "Failed to fetch url content", ex);
-        }
+        FlickrFetchr.fetchItems();
         return null;
     }
 }
