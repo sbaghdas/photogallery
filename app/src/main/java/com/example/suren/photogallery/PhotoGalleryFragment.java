@@ -9,6 +9,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -16,7 +17,10 @@ import java.util.List;
 
 
 public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Listener {
+    private static final int VIEW_COL_WIDTH = 120;
+
     private RecyclerView mRecyclerView;
+    private GridLayoutManager mLayourManager;
     private List<GalleryItem> mItems = new ArrayList<GalleryItem>();
     private int mLastPage;
 
@@ -42,7 +46,9 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            return new PhotoHolder(new TextView(getActivity()));
+            TextView textView = new TextView(getActivity());
+            textView.setPadding(10, 10, 10, 10);
+            return new PhotoHolder(textView);
         }
 
         @Override
@@ -69,16 +75,22 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
                              Bundle savedInstanceState) {
         mLastPage = 0;
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
+        mLayourManager = new GridLayoutManager(getActivity(), 3);
         mRecyclerView = (RecyclerView)view.findViewById(R.id.fragment_photo_gallery_recycler_view);
-        mRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        mRecyclerView.setLayoutManager(mLayourManager);
         mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                GridLayoutManager lm = (GridLayoutManager)recyclerView.getLayoutManager();
-                if (lm.findLastVisibleItemPosition() == mItems.size() - 1) {
+                if (mLayourManager.findLastVisibleItemPosition() == mItems.size() - 1) {
                     new FetchItemsTask(PhotoGalleryFragment.this, mLastPage + 1).execute();
                 }
+            }
+        });
+        mRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                mLayourManager.setSpanCount(mRecyclerView.getWidth() / VIEW_COL_WIDTH);
             }
         });
         setupAdapter();
@@ -95,8 +107,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
             mItems.addAll(list);
             mLastPage = page;
         }
-        GridLayoutManager lm = (GridLayoutManager)mRecyclerView.getLayoutManager();
-        int position = lm.findFirstCompletelyVisibleItemPosition();
+        int position = mLayourManager.findFirstCompletelyVisibleItemPosition();
         setupAdapter();
         mRecyclerView.scrollToPosition(position);
     }
