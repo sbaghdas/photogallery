@@ -3,12 +3,18 @@ package com.example.suren.photogallery;
 import android.net.Uri;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FlickrFetchr {
     private static final String LOG_TAG = FlickrFetchr.class.getSimpleName();
@@ -16,7 +22,22 @@ public class FlickrFetchr {
             "https://api.flickr.com/services/rest/";
     private static final String FLICKR_KEY = "<get API key at http://www.flickr.com/services/api/>";
 
-    public static void fetchItems() {
+    private static void parseJson(List<GalleryItem> items, JSONObject root) throws JSONException {
+        JSONObject photos = root.getJSONObject("photos");
+        JSONArray photoArray = photos.getJSONArray("photo");
+        for (int i = 0; i < photoArray.length(); i++) {
+            JSONObject photo = photoArray.getJSONObject(i);
+            if (photo.has("url_s")) {
+                GalleryItem item = new GalleryItem();
+                item.setId(photo.getString("id"));
+                item.setCaption(photo.getString("title"));
+                item.setUrl(photo.getString("url_s"));
+                items.add(item);
+            }
+        }
+    }
+
+    public static List<GalleryItem> fetchItems() {
         String urlString = Uri.parse(FLICKR_ENTRY_POINT)
                 .buildUpon()
                 .appendQueryParameter("method", "flickr.photos.getRecent")
@@ -27,10 +48,15 @@ public class FlickrFetchr {
                 .build().toString();
         try {
             String jsonString = getUrlString(urlString);
-            Log.i(LOG_TAG, jsonString);
+            List<GalleryItem> items = new ArrayList<GalleryItem>();
+            parseJson(items, new JSONObject(jsonString));
+            return items;
         } catch (IOException ex) {
             Log.i(LOG_TAG, "Failed to fetch content", ex);
+        } catch (JSONException ex) {
+            Log.i(LOG_TAG, "Failed to parse content", ex);
         }
+        return null;
     }
 
     public static byte[] getUrlBytes(String urlString) throws IOException {
