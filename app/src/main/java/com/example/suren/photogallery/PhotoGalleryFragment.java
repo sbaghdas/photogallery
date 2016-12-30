@@ -18,6 +18,7 @@ import java.util.List;
 public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Listener {
     private RecyclerView mRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<GalleryItem>();
+    private int mLastPage;
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
         private TextView mCaptionTextView;
@@ -66,19 +67,38 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        mLastPage = 0;
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
         mRecyclerView = (RecyclerView)view.findViewById(R.id.fragment_photo_gallery_recycler_view);
         mRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                GridLayoutManager lm = (GridLayoutManager)recyclerView.getLayoutManager();
+                if (lm.findLastVisibleItemPosition() == mItems.size() - 1) {
+                    new FetchItemsTask(PhotoGalleryFragment.this, mLastPage + 1).execute();
+                }
+            }
+        });
         setupAdapter();
         setRetainInstance(true);
-        new FetchItemsTask(this).execute();
+        new FetchItemsTask(this, mLastPage).execute();
         return view;
     }
 
     @Override
-    public void onListFetched(List<GalleryItem> list) {
-        mItems = list;
+    public void onListFetched(List<GalleryItem> list, int page) {
+        if (page == 0) {
+            mItems = list;
+        } else if (page > mLastPage) {
+            mItems.addAll(list);
+            mLastPage = page;
+        }
+        GridLayoutManager lm = (GridLayoutManager)mRecyclerView.getLayoutManager();
+        int position = lm.findFirstCompletelyVisibleItemPosition();
         setupAdapter();
+        mRecyclerView.scrollToPosition(position);
     }
 
     private void setupAdapter() {
