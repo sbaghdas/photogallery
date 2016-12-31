@@ -8,7 +8,6 @@ import java.util.List;
 
 public class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
     private static final String LOG_TAG = FetchItemsTask.class.getSimpleName();
-    private static final String SITE_URL = "https://www.bignerdranch.com";
 
     public interface Listener {
         void onListFetched(List<GalleryItem> list, int page);

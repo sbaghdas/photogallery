@@ -1,6 +1,7 @@
 package com.example.suren.photogallery;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -10,6 +11,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -25,15 +28,15 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     private int mLastPage;
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        private TextView mCaptionTextView;
+        private ImageView mImageView;
 
-        public PhotoHolder(View itemView) {
-            super(itemView);
-            mCaptionTextView = (TextView)itemView;
+        public PhotoHolder(View view) {
+            super(view);
+            mImageView = (ImageView)view.findViewById(R.id.gallery_item_image_view);
         }
 
-        public void bindGalleryItem(GalleryItem item) {
-            mCaptionTextView.setText(item.getCaption());
+        public void bindDrawable(Drawable drawable) {
+            mImageView.setImageDrawable(drawable);
         }
     }
 
@@ -46,14 +49,16 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            TextView textView = new TextView(getActivity());
-            textView.setPadding(10, 10, 10, 10);
-            return new PhotoHolder(textView);
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
+            View view = inflater.inflate(R.layout.gallery_item, parent, false);
+            return new PhotoHolder(view);
         }
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
-            holder.bindGalleryItem(mItems.get(position));
+            GalleryItem item = mItems.get(position);
+            Drawable drawable = getResources().getDrawable(R.mipmap.ic_launcher);
+            holder.bindDrawable(drawable);
         }
 
         @Override
