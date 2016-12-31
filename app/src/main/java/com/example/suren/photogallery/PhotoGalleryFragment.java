@@ -1,9 +1,12 @@
 package com.example.suren.photogallery;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -11,6 +14,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.webkit.HttpAuthHandler;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -20,12 +24,14 @@ import java.util.List;
 
 
 public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Listener {
-    private static final int VIEW_COL_WIDTH = 120;
+    private static final int VIEW_COL_WIDTH = 240;
 
     private RecyclerView mRecyclerView;
     private GridLayoutManager mLayourManager;
     private List<GalleryItem> mItems = new ArrayList<GalleryItem>();
     private int mLastPage;
+    private boolean mFetching;
+    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
         private ImageView mImageView;
@@ -57,8 +63,8 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
             GalleryItem item = mItems.get(position);
-            Drawable drawable = getResources().getDrawable(R.mipmap.ic_launcher);
-            holder.bindDrawable(drawable);
+            holder.bindDrawable(null);
+            mThumbnailDownloader.queueThumbnail(holder, item.getUrl());
         }
 
         @Override
@@ -73,12 +79,32 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // new handler for UI thread
+        mThumbnailDownloader = new ThumbnailDownloader<>(new Handler());
+        mThumbnailDownloader.setThumbnailDownloaderListener(
+                new ThumbnailDownloader.ThumbnailDownloaderListener<PhotoHolder>() {
+            @Override
+            public void onThumbnailDownload(PhotoHolder target, Bitmap bitmap) {
+                Drawable drawable = new BitmapDrawable(getResources(), bitmap);
+                target.bindDrawable(drawable);
+            }
+        });
+
+        mThumbnailDownloader.start();
+        mThumbnailDownloader.getLooper(); // make sure Looper is created
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mThumbnailDownloader.quit();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         mLastPage = 0;
+        mFetching = false;
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
         mLayourManager = new GridLayoutManager(getActivity(), 3);
         mRecyclerView = (RecyclerView)view.findViewById(R.id.fragment_photo_gallery_recycler_view);
@@ -87,7 +113,8 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                if (mLayourManager.findLastVisibleItemPosition() == mItems.size() - 1) {
+                if (!mFetching && mLayourManager.findLastVisibleItemPosition() == mItems.size() - 1) {
+                    mFetching = true;
                     new FetchItemsTask(PhotoGalleryFragment.this, mLastPage + 1).execute();
                 }
             }
@@ -106,11 +133,14 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
     @Override
     public void onListFetched(List<GalleryItem> list, int page) {
+        mFetching = false;
         if (page == 0) {
             mItems = list;
         } else if (page > mLastPage) {
             mItems.addAll(list);
             mLastPage = page;
+        } else {
+            return;
         }
         int position = mLayourManager.findFirstCompletelyVisibleItemPosition();
         setupAdapter();
