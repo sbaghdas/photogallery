@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.support.annotation.NonNull;
+import android.support.v4.util.LruCache;
 import android.util.Log;
 
 import java.io.IOException;
@@ -19,12 +20,14 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private static final String TAG = "ThumbnailDownloader";
     private static final String LOG_TAG = ThumbnailDownloader.class.getSimpleName();
     private static final int MESSAGE_DOWNLOAD = 0;
+    private static final int CACHE_SIZE = 50;
 
     private boolean mHasQuit = false;
     private Handler mRequestHandler;
     private Handler mUiHandler;
     private ConcurrentMap<T, String> mRequestMap = new ConcurrentHashMap<T, String>();
     private ThumbnailDownloaderListener<T> mListener;
+    private LruCache<String, Bitmap> mBitmapCache = new LruCache<String, Bitmap>(CACHE_SIZE);
 
     public ThumbnailDownloader(Handler uiHandler) {
         super(TAG);
@@ -70,12 +73,18 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private void handleRequest(T target) {
         String urlString = mRequestMap.get(target);
         if (urlString != null) {
-            try {
-                byte[] bytes = FlickrFetchr.getUrlBytes(urlString);
-                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            Bitmap bitmap = mBitmapCache.get(urlString);
+            if (bitmap == null) {
+                try {
+                    byte[] bytes = FlickrFetchr.getUrlBytes(urlString);
+                    bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                    mBitmapCache.put(urlString, bitmap);
+                    mUiHandler.post(new UiUpdateTask(target, urlString, bitmap));
+                } catch (IOException ex) {
+                    Log.e(LOG_TAG, "Failed to fetch image", ex);
+                }
+            } else {
                 mUiHandler.post(new UiUpdateTask(target, urlString, bitmap));
-            } catch (IOException ex) {
-                Log.e(LOG_TAG, "Failed to fetch image", ex);
             }
         }
     }
