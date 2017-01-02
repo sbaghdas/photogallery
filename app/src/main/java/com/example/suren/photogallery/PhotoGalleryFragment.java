@@ -36,7 +36,6 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     private List<GalleryItem> mItems = new ArrayList<GalleryItem>();
     private int mLastPage;
     private boolean mFetching;
-    private String mSearchString;
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
@@ -116,7 +115,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                mSearchString = query;
+                QueryPreferences.setStoredQuery(getActivity(), query);
                 mLastPage = 0;
                 fetchItems(mLastPage);
                 return true;
@@ -131,7 +130,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
         clearMenu.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
             @Override
             public boolean onMenuItemClick(MenuItem menuItem) {
-                mSearchString = null;
+                QueryPreferences.setStoredQuery(getActivity(), null);
                 mLastPage = 0;
                 fetchItems(mLastPage);
                 return false;
@@ -141,13 +140,13 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
     private void fetchItems(int page) {
         mFetching = true;
-        new FetchItemsTask(PhotoGalleryFragment.this, mSearchString, page).execute();
+        new FetchItemsTask(PhotoGalleryFragment.this,
+                QueryPreferences.getStoredQuery(getActivity()), page).execute();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        mSearchString = null;
         mLastPage = 0;
         mFetching = false;
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
