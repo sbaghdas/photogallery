@@ -25,6 +25,7 @@ import java.util.List;
 
 public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Listener {
     private static final int VIEW_COL_WIDTH = 240;
+    private static final int PRELOAD_ITEM_COUNT = 50;
 
     private RecyclerView mRecyclerView;
     private GridLayoutManager mLayourManager;
@@ -113,9 +114,14 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                if (!mFetching && mLayourManager.findLastVisibleItemPosition() == mItems.size() - 1) {
+                int lastItem = mLayourManager.findLastVisibleItemPosition();
+                if (!mFetching && lastItem == mItems.size() - 1) {
                     mFetching = true;
                     new FetchItemsTask(PhotoGalleryFragment.this, mLastPage + 1).execute();
+                } else {
+                    int firstItem = mLayourManager.findFirstVisibleItemPosition();
+                    preload(firstItem - PRELOAD_ITEM_COUNT, PRELOAD_ITEM_COUNT);
+                    preload(lastItem, PRELOAD_ITEM_COUNT);
                 }
             }
         });
@@ -129,6 +135,19 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
         setRetainInstance(true);
         new FetchItemsTask(this, mLastPage).execute();
         return view;
+    }
+
+    private void preload(int position, int count) {
+        if (position < 0) {
+            position = 0;
+        }
+        int end = position + count;
+        if (end > mItems.size()) {
+            end = mItems.size();
+        }
+        for (int i = position; i < end; i++) {
+            mThumbnailDownloader.queueThumbnail(null, mItems.get(i).getUrl());
+        }
     }
 
     @Override
