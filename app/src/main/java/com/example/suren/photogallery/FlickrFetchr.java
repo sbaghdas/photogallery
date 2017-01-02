@@ -60,6 +60,30 @@ public class FlickrFetchr {
         return null;
     }
 
+    public static List<GalleryItem> searchItems(int page, String query) {
+        String urlString = Uri.parse(FLICKR_ENTRY_POINT)
+                .buildUpon()
+                .appendQueryParameter("method", "flickr.photos.search")
+                .appendQueryParameter("api_key", FLICKR_KEY)
+                .appendQueryParameter("format", "json")
+                .appendQueryParameter("nojsoncallback", "1")
+                .appendQueryParameter("extras", "url_s")
+                .appendQueryParameter("page", Integer.toString(page))
+                .appendQueryParameter("text", query)
+                .build().toString();
+        try {
+            String jsonString = getUrlString(urlString);
+            List<GalleryItem> items = new ArrayList<GalleryItem>();
+            parseJson(items, new JSONObject(jsonString));
+            return items;
+        } catch (IOException ex) {
+            Log.i(LOG_TAG, "Failed to fetch content", ex);
+        } catch (JSONException ex) {
+            Log.i(LOG_TAG, "Failed to parse content", ex);
+        }
+        return null;
+    }
+
     public static byte[] getUrlBytes(String urlString) throws IOException {
         URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection)url.openConnection();

@@ -10,7 +10,11 @@ import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -32,6 +36,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     private List<GalleryItem> mItems = new ArrayList<GalleryItem>();
     private int mLastPage;
     private boolean mFetching;
+    private String mSearchString;
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
@@ -93,6 +98,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper(); // make sure Looper is created
+        setHasOptionsMenu(true);
     }
 
     @Override
@@ -102,8 +108,46 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
     }
 
     @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
+        MenuItem searchMenu = menu.findItem(R.id.menu_item_search);
+        SearchView searchView = (SearchView)searchMenu.getActionView();
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                mSearchString = query;
+                mLastPage = 0;
+                fetchItems(mLastPage);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        MenuItem clearMenu = menu.findItem(R.id.menu_item_clear);
+        clearMenu.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+                mSearchString = null;
+                mLastPage = 0;
+                fetchItems(mLastPage);
+                return false;
+            }
+        });
+    }
+
+    private void fetchItems(int page) {
+        mFetching = true;
+        new FetchItemsTask(PhotoGalleryFragment.this, mSearchString, page).execute();
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        mSearchString = null;
         mLastPage = 0;
         mFetching = false;
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
@@ -115,13 +159,14 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
                 int lastItem = mLayourManager.findLastVisibleItemPosition();
-                if (!mFetching && lastItem == mItems.size() - 1) {
-                    mFetching = true;
-                    new FetchItemsTask(PhotoGalleryFragment.this, mLastPage + 1).execute();
-                } else {
-                    int firstItem = mLayourManager.findFirstVisibleItemPosition();
-                    preload(firstItem - PRELOAD_ITEM_COUNT, PRELOAD_ITEM_COUNT);
-                    preload(lastItem, PRELOAD_ITEM_COUNT);
+                if (!mFetching) {
+                    if (lastItem == mItems.size() - 1) {
+                        fetchItems(mLastPage + 1);
+                    } else {
+                        int firstItem = mLayourManager.findFirstVisibleItemPosition();
+                        preload(firstItem - PRELOAD_ITEM_COUNT, PRELOAD_ITEM_COUNT);
+                        preload(lastItem, PRELOAD_ITEM_COUNT);
+                    }
                 }
             }
         });
@@ -133,7 +178,7 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
         });
         setupAdapter();
         setRetainInstance(true);
-        new FetchItemsTask(this, mLastPage).execute();
+        fetchItems(mLastPage);
         return view;
     }
 
@@ -152,6 +197,9 @@ public class PhotoGalleryFragment extends Fragment implements FetchItemsTask.Lis
 
     @Override
     public void onListFetched(List<GalleryItem> list, int page) {
+        if (list.size() == 0) {
+            return;
+        }
         mFetching = false;
         if (page == 0) {
             mItems = list;
